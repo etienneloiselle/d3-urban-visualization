@@ -1,0 +1,146 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Zoom/pan map example</title>
+    <script type="text/javascript" src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+    <style type="text/css">
+        #uk {
+            fill: #E5F5F9;
+            stroke: #2CA25F;
+            stroke-width: 0.5;
+        }
+        
+        #axes {
+            stroke: #BDBDBD;
+            stroke-width: 0.5;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="vis"></div>
+    <script type="text/javascript">
+        var w = jQuery(window).width();
+        var h = jQuery(window).height();
+        var proj = d3.geo.mercator().center([-73.6208360983675, 45.5235925888858]);
+        var path = d3.geo.path().projection(proj);
+        var t = proj.translate(); // the projection's default translation
+        var s = proj.scale() // the projection's default scale
+        var aglodata = [];
+        var agloByName = [];
+        var debug = [];
+
+        // Create the Google Map…
+        var map = new google.maps.Map(d3.select("#map").node(), {
+            zoom: 8,
+            center: new google.maps.LatLng(37.76487, -122.41948),
+            mapTypeId: google.maps.MapTypeId.TERRAIN
+        });
+
+        var colorUni = d3.scale.linear()
+            .domain([0, 30, 40])
+            .range(['red', 'blue']);
+
+        d3.csv("role_1.csv", function(json) {
+            console.log(json);
+            aglodata = json;
+            agloByName = d3.nest()
+                .key(function(d) {
+                    return d.agglomeration;
+                })
+                .entries(aglodata);
+            console.log(agloByName);
+        });
+
+
+
+
+
+        var map = d3.select("#vis").append("svg:svg")
+            .attr("width", w)
+            .attr("height", h)
+            .call(d3.behavior.zoom().on("zoom", redraw));
+
+        var axes = map.append("svg:g").attr("id", "axes");
+
+        var xAxis = axes.append("svg:line")
+            .attr("x1", t[0])
+            .attr("y1", 0)
+            .attr("x2", t[0])
+            .attr("y2", h);
+
+        var yAxis = axes.append("svg:line")
+            .attr("x1", 0)
+            .attr("y1", t[1])
+            .attr("x2", w)
+            .attr("y2", t[1]);
+
+        var uk = map.append("svg:g").attr("id", "uk");
+
+        d3.json("map.geojson", function(json) {
+
+            /* Google Map Overlay */
+            var overlay = new google.maps.OverlayView();
+
+
+            console.log(json);
+            debug = json;
+            uk.selectAll("path")
+                .data(json.features)
+                .enter().append("svg:path")
+                .attr("d", path)
+                .attr("data-tauxuni", function(d, i) {
+                    var mapAgloName = d.properties.NOM;
+                    foundAglo = agloByName.filter(function(d) {
+                        var dataAgloName = d.key;
+                        return dataAgloName == mapAgloName;
+                    });
+                    if (foundAglo.length > 0) {
+                        return foundAglo[0].values[0].tauxuni;
+                    } else {
+                        return 0;
+                    }
+
+                })
+                .attr("fill", function(d, i) {
+                    var mapAgloName = d.properties.NOM;
+                    foundAglo = agloByName.filter(function(d) {
+                        var dataAgloName = d.key;
+                        return dataAgloName == mapAgloName;
+                    });
+                    if (foundAglo.length > 0) {
+                        return colorUni(foundAglo[0].values[0].tauxuni);
+                    } else {
+                        return "#000000";
+                    }
+                });
+        });
+
+        function redraw() {
+            // d3.event.translate (an array) stores the current translation from the parent SVG element
+            // t (an array) stores the projection's default translation
+            // we add the x and y vales in each array to determine the projection's new translation
+            var tx = t[0] * d3.event.scale + d3.event.translate[0];
+            var ty = t[1] * d3.event.scale + d3.event.translate[1];
+            proj.translate([tx, ty]);
+
+            // now we determine the projection's new scale, but there's a problem:
+            // the map doesn't 'zoom onto the mouse point'
+            proj.scale(s * d3.event.scale);
+
+            // redraw the map
+            uk.selectAll("path").attr("d", path);
+
+            // redraw the x axis
+            xAxis.attr("x1", tx).attr("x2", tx);
+
+            // redraw the y axis
+            yAxis.attr("y1", ty).attr("y2", ty);
+        }
+    </script>
+</body>
+
+</html>

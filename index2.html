@@ -1,0 +1,166 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://d3js.org/d3.v3.min.js"></script>
+  <script type="text/javascript" src="http://code.jquery.com/jquery-1.6.2.min.js"></script>
+  <script type="text/javascript" src="libs/tip/d3-tip.js"></script>
+  <link href="libs/tip/tip.css" rel="stylesheet" type="text/css" />
+  <style>
+    .chart rect {
+      fill: steelblue;
+    }
+
+    .chart rect:hover {
+      fill: turquoise;
+    }
+
+    .chart .rectM {
+      stroke: green;
+      stroke-width: 1;
+      fill: green;
+      fill-opacity: .2;
+    }
+
+    .chart .rectM:hover {
+      fill: green;
+      fill-opacity: .5;
+    }
+
+    .chart text {
+      font: 10px sans-serif;
+    }
+
+    .chart .title {
+      font: 15px sans-serif;
+    }
+
+    .axis path,
+    .axis line {
+      fill: none;
+      stroke: #000;
+      shape-rendering: crispEdges;
+    }
+  </style>
+
+</head>
+<body>
+  <div class="chart"></div>
+
+  <script>
+    var height = 600;
+    var width = 1000;
+    var margin = 40;
+    var colors = d3.scale.category20();
+
+    d3.csv("role_1.csv", function(d) {
+      return {
+    agglomeration: d.agglomeration, // convert "Year" column to Date
+    valeuruni2011: +d.valeuruni2011,
+    valeurcondos2011: +d.valeurcondos2011,
+    valeuruni2014: +d.valeuruni2014,
+    valeurcondos2014: +d.valeurcondos2014,
+    tauxuni: +d.tauxuni,
+    tauxcondos: +d.tauxcondos
+  };
+}, function(error, rows) {
+  console.log(rows);
+  var labelX = 'Index';
+  var labelY = 'Taux de variation (%)';
+  var svg = d3.select('.chart')
+  .append('svg')
+  .attr('class', 'chart')
+  .attr("width", width + margin + margin)
+  .attr("height", height + margin + margin)
+  .append("g")
+  .attr("transform", "translate(" + margin + "," + margin + ")");
+
+  var tip = d3.tip()
+  .attr('class', 'd3-tip')
+  .offset([-10, 0])
+  .html(function(d) {
+    return "<strong>" + d.agglomeration + "- </strong>" + d.tauxcondos ;
+  })
+  svg.call(tip);
+
+  var x = d3.scale.linear()
+  .domain([0, 35])
+  .range([0, width]);
+
+  var y = d3.scale.linear()
+  .domain([d3.min(rows, function (d) { return d.tauxuni; }), d3.max(rows, function (d) { return d.tauxuni; })])
+  .range([height, 0]);
+
+  var xAxis = d3.svg.axis().scale(x);
+  var yAxis = d3.svg.axis().scale(y).orient("left");
+
+  svg.append("g")
+  .attr("class", "y axis")
+  .call(yAxis)
+  .append("text")
+  .attr("transform", "rotate(-90)")
+  .attr("x", 20)
+  .attr("y", -margin)
+  .attr("dy", ".71em")
+  .style("text-anchor", "end")
+  .text(labelY);
+                            // x axis and label
+                            svg.append("g")
+                            .attr("class", "x axis")
+                            .attr("transform", "translate(0," + height + ")")
+                            .call(xAxis)
+                            .append("text")
+                            .attr("x", width + 20)
+                            .attr("y", margin - 10)
+                            .attr("dy", ".71em")
+                            .style("text-anchor", "end")
+                            .text(labelX);
+
+
+                            svg.append("g")
+                            .attr("id", "tauxuni")
+                            .selectAll("circle")
+                                                          .data(rows)
+                                                          .enter()
+                                                          .insert("circle")
+                                                          .attr("cx", width / 2)
+                                                          .attr("cy", height / 2)
+                                                          .attr("opacity", 1)
+                                                          .attr("r", 7)
+                                                          .attr("fill", "#ff0000")
+                                                          .on('mouseover', tip.show)
+                                                          .on('mouseout', tip.hide)
+                                                         .transition()
+                                                        .delay(function (d, i) { return i*20})
+                                                        .duration(500)
+                                                        .attr("cx", function (d, i) { return x(i); })
+                                                        .attr("cy", function (d) { return y(d.tauxuni); })
+                                                        .ease("bounce");
+
+
+                            svg.append("g")
+                            .attr("id", "tauxcondos")
+                            .selectAll("circle")
+                            .data(rows)
+                            .enter()
+                            .insert("circle")
+                            .attr("cx", width / 2)
+                            .attr("cy", height / 2)
+                            .attr("opacity", 1)
+                            .attr("r", 7)
+                            .attr("fill", function(d, i) { return colors(1); })
+                            .on('mouseover', tip.show)
+                            .on('mouseout', tip.hide)
+                            .transition()
+                            .delay(function (d, i) { return i*20})
+                            .duration(500)
+                            .attr("cx", function (d, i) { return x(i); })
+                            .attr("cy", function (d) { return y(d.tauxcondos); })
+                            .ease("bounce");
+
+                          });
+
+
+                        </script>
+                      </body>
+                      </html>

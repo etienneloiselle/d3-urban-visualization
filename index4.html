@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>GeoJSON with Leaflet + D3 using L.D3SvgOverlay</title>
+
+    <style type="text/css">
+        html {
+            height: 100%
+        }
+        
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0
+        }
+        
+        #map-canvas {
+            height: 100%
+        }
+    </style>
+    <link href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/leaflet.css' rel='stylesheet' type='text/css' />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+
+</head>
+
+<body>
+    <div id="map-canvas"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.4.9/d3.min.js"></script>
+    <script src="libs/L.D3SvgOverlay.js"></script>
+    <script>
+    var agloByName = [];
+    var aglodata = [];
+    	d3.csv("role_1.csv", function(json) {
+    	    console.log(json);
+    	    aglodata = json;
+    	    agloByName = d3.nest()
+    	        .key(function(d) {
+    	            return d.agglomeration;
+    	        })
+    	        .entries(aglodata);
+    	    console.log(agloByName);
+    	});
+
+    	/* Couleur pour unifamiliale */
+    	var colorUni = d3.scale.linear()
+    .domain([0, 22, 50])
+    .range(["#1eff00", "#ffd200","#ff0000"]);
+
+    	var colorCondos = d3.scale.linear()
+    .domain([0, 22, 50])
+    .range(["#ff00ba", "#2400ff","#00ffa2"]);
+
+
+        var map = L.map("map-canvas", {
+            center: [45.557956,-73.8519897],
+            zoom: 10
+        });
+        var tiles = L.tileLayer('http://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community'
+        });
+        var Hydda_RoadsAndLabels = L.tileLayer('http://{s}.tile.openstreetmap.se/hydda/roads_and_labels/{z}/{x}/{y}.png', {
+        	maxZoom: 18,
+        	attribution: 'Tiles courtesy of <a href="http://openstreetmap.se/" target="_blank">OpenStreetMap Sweden</a> &mdash; Map data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        });
+        tiles.addTo(map);
+        Hydda_RoadsAndLabels.addTo(map);
+
+        var countries = [];
+        var countriesOverlay = L.d3SvgOverlay(function(sel, proj) {
+
+            var upd = sel.selectAll('path').data(countries);
+            upd.enter()
+                .append('path')
+                .attr('d', proj.pathFromGeojson)
+                .attr('stroke', 'black')
+                .attr("data-aglo", function(d, i){
+                	return d.properties.NOM;
+                })
+                .attr("data-tauxuni", function(d, i) {
+                    var mapAgloName = d.properties.NOM;
+                    foundAglo = agloByName.filter(function(d) {
+                        var dataAgloName = d.key;
+                        return dataAgloName == mapAgloName;
+                    });
+                    if (foundAglo.length > 0) {
+                        return foundAglo[0].values[0].tauxuni;
+                    } else {
+                        return 0;
+                    }
+
+                })
+                .attr("fill", function(d, i) {
+                                    var mapAgloName = d.properties.NOM;
+                                    foundAglo = agloByName.filter(function(d) {
+                                        var dataAgloName = d.key;
+                                        return dataAgloName == mapAgloName;
+                                    });
+                                    if (foundAglo.length > 0) {
+                                        return colorUni(foundAglo[0].values[0].tauxuni);
+                                    } else {
+                                        return "#000000";
+                                    }
+                                })
+                .attr('fill-opacity', '0.5');
+            upd.attr('stroke-width', 1 / proj.scale);
+        });
+
+        var condosOverlay = L.d3SvgOverlay(function(sel, proj) {
+
+            var upd = sel.selectAll('path').data(countries);
+            upd.enter()
+                .append('path')
+                .attr('d', proj.pathFromGeojson)
+                .attr('stroke', 'black')
+                .attr("data-tauxcondos", function(d, i) {
+                    var mapAgloName = d.properties.NOM;
+                    foundAglo = agloByName.filter(function(d) {
+                        var dataAgloName = d.key;
+                        return dataAgloName == mapAgloName;
+                    });
+                    if (foundAglo.length > 0) {
+                        return foundAglo[0].values[0].tauxcondos;
+                    } else {
+                        return 0;
+                    }
+
+                })
+                .attr("fill", function(d, i) {
+                                    var mapAgloName = d.properties.NOM;
+                                    foundAglo = agloByName.filter(function(d) {
+                                        var dataAgloName = d.key;
+                                        return dataAgloName == mapAgloName;
+                                    });
+                                    if (foundAglo.length > 0) {
+                                        return colorCondos(foundAglo[0].values[0].tauxcondos);
+                                    } else {
+                                        return "#000000";
+                                    }
+                                })
+                .attr('fill-opacity', '0.5');
+            upd.attr('stroke-width', 1 / proj.scale);
+        });
+
+        L.control.layers({
+            "Geo Tiles": tiles,
+            "Label": Hydda_RoadsAndLabels
+        }, {
+            "Unifamiliale": countriesOverlay,
+            "Condos": condosOverlay
+        }).addTo(map);
+
+        d3.json("mtl.geo.json", function(data) {
+            countries = data.features;
+            countriesOverlay.addTo(map)
+        });
+    </script>
+
+</body>
+
+</html>
